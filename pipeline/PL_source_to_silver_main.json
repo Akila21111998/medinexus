@@ -78,7 +78,8 @@
 		},
 		"variables": {
 			"test": {
-				"type": "Integer"
+				"type": "Integer",
+				"defaultValue": 1
 			}
 		},
 		"annotations": []
