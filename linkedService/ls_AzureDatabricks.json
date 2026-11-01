@@ -12,7 +12,8 @@
 					"type": "LinkedServiceReference"
 				},
 				"secretName": "adb-token"
-			}
+			},
+			"existingClusterId": "1101-023506-nhhm8byz"
 		}
 	}
 }
