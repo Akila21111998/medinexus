@@ -212,7 +212,7 @@
 				],
 				"policy": {
 					"timeout": "0.12:00:00",
-					"retry": 0,
+					"retry": 2,
 					"retryIntervalInSeconds": 30,
 					"secureOutput": false,
 					"secureInput": false
@@ -226,7 +226,10 @@
 					"scripts": [
 						{
 							"type": "Query",
-							"text": "update ctrl.audit_log\nset status='SUCCESS', end_time=SYSUTCDATETIME(), records_written=@{activity('Bronze to Silver').output.runOutput}\nwhere adf_run_id='@{pipeline().parameters.adf_run_id}' and table_id=@{pipeline().parameters.table_id}"
+							"text": {
+								"value": "update ctrl.audit_log\nset status='SUCCESS', end_time=SYSUTCDATETIME(), records_written=@{activity('Bronze to Silver').output.runOutput}\nwhere adf_run_id='@{pipeline().parameters.adf_run_id}' and table_id=@{pipeline().parameters.table_id}",
+								"type": "Expression"
+							}
 						}
 					],
 					"scriptBlockExecutionTimeout": "02:00:00"
