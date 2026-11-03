@@ -4,7 +4,7 @@
 		"annotations": [],
 		"type": "AzureKeyVault",
 		"typeProperties": {
-			"baseUrl": "https://medinexus-keyvault.vault.azure.net/"
+			"baseUrl": "https://medinexus-keyvaultt.vault.azure.net/"
 		}
 	}
 }
