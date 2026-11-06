@@ -41,13 +41,13 @@
 				},
 				"inputs": [
 					{
-						"referenceName": "ds_PostgreSql",
+						"referenceName": "ds_postgresql",
 						"type": "DatasetReference"
 					}
 				],
 				"outputs": [
 					{
-						"referenceName": "ds_adls_Parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference",
 						"parameters": {
 							"container": "landing",
