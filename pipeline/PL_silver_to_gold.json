@@ -135,11 +135,50 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"notebookPath": "/Users/thirumalairamesh.a@gmail.com/medinexus-repo/medinexus-adb-repo/Landing_to_Bronze"
+								"notebookPath": {
+									"value": "@concat('/Users/thirumalairamesh.a@gmail.com/medinexus-repo/medinexus-adb-repo/Gold/NB_', item().gold_table_name)",
+									"type": "Expression"
+								}
 							},
 							"linkedServiceName": {
 								"referenceName": "ls_AzureDatabricks",
 								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Update Success status",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Silver to Gold",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "update ctrl.audit_log\nset status='SUCCESS', end_time=SYSUTCDATETIME(), records_written=@{activity('Silver to Gold').output.runOutput}\nwhere adf_run_id='@{pipeline().parameters.adf_run_id}' and table_id=@{item().table_id}",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
 							}
 						}
 					]
