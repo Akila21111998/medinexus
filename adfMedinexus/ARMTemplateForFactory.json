@@ -49,6 +49,104 @@
 	},
 	"resources": [
 		{
+			"name": "[concat(parameters('factoryName'), '/PL_Master')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Source to Silver Postgres",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_source_to_silver_main",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"source_system": "neon_postgres",
+								"adf_run_id": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Source to Silver ADLS",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_source_to_silver_main",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"source_system": "adls_csv",
+								"adf_run_id": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Silver to Gold",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Source to Silver Postgres",
+								"dependencyConditions": [
+									"Completed"
+								]
+							},
+							{
+								"activity": "Source to Silver ADLS",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_silver_to_gold",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"adf_run_id": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/PL_source_to_silver_main')]",
+				"[concat(variables('factoryId'), '/pipelines/PL_silver_to_gold')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/PL_silver_to_gold')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
@@ -984,6 +1082,7 @@
 				"activities": [
 					{
 						"name": "Copy data1",
+						"description": "this is a change in description",
 						"type": "Copy",
 						"dependsOn": [],
 						"policy": {
@@ -1267,89 +1366,195 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/PL_Master')]",
+			"name": "[concat(parameters('factoryName'), '/PL_SEND_EMAIL')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
 				"activities": [
 					{
-						"name": "Source to Silver Postgres",
-						"type": "ExecutePipeline",
+						"name": "Read all table status",
+						"type": "Lookup",
 						"dependsOn": [],
 						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
 							"secureInput": false
 						},
 						"userProperties": [],
 						"typeProperties": {
-							"pipeline": {
-								"referenceName": "PL_source_to_silver_main",
-								"type": "PipelineReference"
-							},
-							"waitOnCompletion": true,
-							"parameters": {
-								"source_system": "neon_postgres",
-								"adf_run_id": {
-									"value": "@pipeline().RunId",
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "select * from ctrl.audit_log where adf_run_id = '@{pipeline().parameters.adf_run_id}'",
 									"type": "Expression"
-								}
-							}
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "ds_azuresqltable1",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
 						}
 					},
 					{
-						"name": "Source to Silver ADLS",
-						"type": "ExecutePipeline",
+						"name": "Prepare email body header",
+						"type": "SetVariable",
 						"dependsOn": [],
 						"policy": {
+							"secureOutput": false,
 							"secureInput": false
 						},
 						"userProperties": [],
 						"typeProperties": {
-							"pipeline": {
-								"referenceName": "PL_source_to_silver_main",
-								"type": "PipelineReference"
-							},
-							"waitOnCompletion": true,
-							"parameters": {
-								"source_system": "adls_csv",
-								"adf_run_id": {
-									"value": "@pipeline().RunId",
-									"type": "Expression"
-								}
-							}
+							"variableName": "body_header",
+							"value": "Ingestion & Transformation process for Medinexus project has been completed and below is the status"
 						}
 					},
 					{
-						"name": "Silver to Gold",
-						"type": "ExecutePipeline",
+						"name": "Prepare email body footer",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "body_footer",
+							"value": "For any support, please reach out to abc@gmail.com"
+						}
+					},
+					{
+						"name": "Prepare email subject",
+						"type": "SetVariable",
 						"dependsOn": [
 							{
-								"activity": "Source to Silver Postgres",
+								"activity": "Check overall failed count",
 								"dependencyConditions": [
-									"Completed"
-								]
-							},
-							{
-								"activity": "Source to Silver ADLS",
-								"dependencyConditions": [
-									"Completed"
+									"Succeeded"
 								]
 							}
 						],
 						"policy": {
+							"secureOutput": false,
 							"secureInput": false
 						},
 						"userProperties": [],
 						"typeProperties": {
-							"pipeline": {
-								"referenceName": "PL_silver_to_gold",
-								"type": "PipelineReference"
-							},
-							"waitOnCompletion": true,
-							"parameters": {
-								"adf_run_id": {
-									"value": "@pipeline().RunId",
+							"variableName": "email_subject",
+							"value": {
+								"value": "@{pipeline().globalParameters.env} | @{if(greater(activity('Check overall failed count').output.firstRow.count,0),'FAILURE' ,'SUCCESS' )} | MEDINEXUS MASTER RUN",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Check overall failed count",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 2,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "select count(*) as count from ctrl.audit_log\nwhere adf_run_id = '@{pipeline().parameters.adf_run_id}'\nand status != 'SUCCESS'",
 									"type": "Expression"
-								}
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "ds_azuresqltable1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "Prepare logic apps body",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Read all table status",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Prepare email body header",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Prepare email body footer",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Prepare email subject",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "logic_apps_body",
+							"value": {
+								"value": "{\n\"subject\" : \"@{variables('email_subject')}\",\n\"email_receipients\":\"@{pipeline().globalParameters.email_receipient}\",\n\"body_header\":\"@{variables('body_header')}\",\n\"body_footer\":\"@{variables('body_footer')}\",\n\"status_table\": @{activity('Read all table status').output.value}\n}",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Send email",
+						"type": "WebActivity",
+						"dependsOn": [
+							{
+								"activity": "Prepare logic apps body",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"method": "POST",
+							"headers": {
+								"Content-Type": "application/json"
+							},
+							"url": {
+								"value": "@pipeline().globalParameters.logic_app_url",
+								"type": "Expression"
+							},
+							"body": {
+								"value": "@variables('logic_apps_body')",
+								"type": "Expression"
 							}
 						}
 					}
@@ -1357,11 +1562,30 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
+				"parameters": {
+					"adf_run_id": {
+						"type": "string",
+						"defaultValue": "ec22a07a-bd08-4791-90e2-264378b2f3a4"
+					}
+				},
+				"variables": {
+					"body_header": {
+						"type": "String"
+					},
+					"email_subject": {
+						"type": "String"
+					},
+					"logic_apps_body": {
+						"type": "String"
+					},
+					"body_footer": {
+						"type": "String"
+					}
+				},
 				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/pipelines/PL_source_to_silver_main')]",
-				"[concat(variables('factoryId'), '/pipelines/PL_silver_to_gold')]"
+				"[concat(variables('factoryId'), '/datasets/ds_azuresqltable1')]"
 			]
 		}
 	]
