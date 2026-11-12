@@ -1,0 +1,12 @@
+{
+	"name": "adfMedinexus",
+	"properties": {
+		"globalParameters": {
+			"email_receipient": {
+				"type": "string",
+				"value": "akilandeswari21official@gmail.com"
+			}
+		}
+	},
+	"location": "centralindia"
+}
